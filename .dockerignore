@@ -46,11 +46,5 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
-# Tests
-**/*.test.ts
-**/*.test.js
-**/*.spec.ts
-**/*.spec.js
-test/
-tests/
+# Coverage only (tests are needed for Docker test stage)
 coverage/

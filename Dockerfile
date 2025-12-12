@@ -42,9 +42,27 @@ RUN npx prisma generate
 RUN npx tsc
 
 # ============================================
-# STAGE 3: Production Runtime - Ultra Lean
+# STAGE 3: Test - Quality Gate
+# ============================================
+FROM builder AS test
+
+# Copy test files and configuration
+COPY __tests__ ./__tests__
+COPY vitest.config.ts ./
+COPY .env.test ./
+
+# Run tests (build will fail if tests fail)
+RUN npm run test:ci
+
+# ============================================
+# STAGE 4: Production Runtime - Ultra Lean
+# (Only built if tests pass)
 # ============================================
 FROM node:20-alpine AS production
+
+# Copy test results to ensure test stage runs
+# (Docker won't build this stage unless test stage succeeds)
+COPY --from=test /app/dist ./test-passed
 
 # Install dumb-init for proper signal handling (PID 1 problem)
 RUN apk add --no-cache dumb-init

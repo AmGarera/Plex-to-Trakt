@@ -7,6 +7,12 @@
     "start:prod": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "build": "tsc && prisma generate",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ci": "vitest run --silent",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest watch",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push"
@@ -28,8 +34,14 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/node-cron": "^3.0.11",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/ui": "^4.0.15",
     "prisma": "^7.0.1",
+    "supertest": "^7.1.4",
     "tsx": "^4.21.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.15",
+    "vitest-mock-extended": "^3.1.0"
   }
 }
