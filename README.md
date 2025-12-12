@@ -8,10 +8,13 @@ Automatically sync your Plex watch history to Trakt.tv using webhooks.
 
 - 🎬 Real-time sync from Plex to Trakt via webhooks
 - 📺 Supports both movies, TV shows and Anime
+- ⏱️ **Watch progress sync** - Sync playback position in real-time, not just completion
+- 📊 **Sync history tracking** - View all sync activity with detailed logs
 - 🔄 Automatic token refresh (access tokens every 24h, refresh tokens kept alive)
 - 🐳 Docker support for easy deployment
 - 🔐 Secure user authentication with Plex and Trakt
-- 📊 Multi-user support - only users with access to your Plex server can login and add their Trakt credentials
+- 👥 Multi-user support - only users with access to your Plex server can login and add their Trakt credentials
+- ⚙️ Configurable sync settings per user (throttling, progress thresholds)
 
 ![App](/photos/app.png)
 
@@ -123,10 +126,31 @@ To find your Plex server machine identifier:
 
 1. **Authentication**: Users authenticate with Plex and configure their Trakt API credentials
 2. **Webhooks**: Plex sends webhook events when media is watched
-3. **Scrobbling**: When media reaches 90% completion, it's automatically scrobbled to Trakt
-4. **Token Management**:
+3. **Progress Sync** (Optional):
+   - Real-time playback position sync to Trakt (play, pause, resume, stop events)
+   - Intelligent throttling to prevent excessive API calls
+   - Configurable minimum progress change threshold (default: 5%)
+   - Configurable minimum time between updates (default: 5 minutes)
+4. **Scrobbling**: When media reaches 90% completion, it's automatically marked as watched on Trakt
+5. **Sync History**: All sync attempts are logged with success/failure status for debugging
+6. **Token Management**:
    - Access tokens are refreshed automatically when expired (24h)
    - Refresh tokens are kept alive with weekly maintenance (90d expiration)
+
+### Watch Progress Sync
+
+The watch progress sync feature keeps your Trakt playback position in sync with Plex in real-time:
+
+- **Start**: When you start watching, Trakt is notified
+- **Pause**: When you pause, the current position is synced to Trakt
+- **Resume**: Position updates are sent (respecting throttling settings)
+- **Stop**: Final position is synced when you stop playback
+
+This feature is **enabled by default** but can be disabled per user. You can configure:
+- Minimum progress change percentage to trigger sync
+- Minimum time interval between progress updates
+
+Access these settings in the web interface after logging in.
 
 ## Docker Volumes
 

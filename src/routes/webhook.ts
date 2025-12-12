@@ -3,6 +3,13 @@ import multer from "multer"
 import { prisma } from "../services/prisma.js"
 import { extractIds } from "../services/idParser.js"
 import { syncToTrakt } from "../services/syncTrakt.js"
+import {
+  scrobbleToTrakt,
+  updateProgressTracking,
+  shouldSyncProgress,
+  markProgressSynced,
+  cleanupProgressRecord,
+} from "../services/scrobbleTrakt.js"
 
 const router = express.Router()
 const upload = multer()
@@ -58,17 +65,7 @@ router.post("/plex", upload.single("thumb"), async (req, res) => {
     return res.status(200).send("unknown user")
   }
 
-  // Only process media.scrobble events (when Plex marks as watched at 90% viewed)
-  // This prevents duplicate syncs on pause/resume/stop events
-  const finished = event === "media.scrobble"
-
-  if (!finished) {
-    return res.status(200).send("ignored")
-  }
-
-  console.log("📺 Processing:", md?.title, "for", user.plexUsername)
-
-  // Pass the Guid array from metadata to help resolve plex:// format GUIDs
+  // Extract IDs early (needed for all event types)
   const ids = extractIds(md.guid, md.Guid)
   if (!ids) {
     console.log("❌ Could not extract IDs from:", md?.guid)
@@ -78,11 +75,74 @@ router.post("/plex", upload.single("thumb"), async (req, res) => {
     return res.status(200).send("no ids")
   }
 
-  console.log("✓ Extracted IDs:", ids)
+  // Calculate progress percentage from viewOffset and duration (in milliseconds)
+  const viewOffset = parseInt(md.viewOffset || 0)
+  const duration = parseInt(md.duration || 0)
+  const progress = duration > 0 ? Math.round((viewOffset / duration) * 100) : 0
 
+  console.log(`📺 Event: ${event} | ${md?.title} | Progress: ${progress}% | User: ${user.plexUsername}`)
+
+  // Handle different event types
   try {
-    await syncToTrakt(user, md, ids)
-    console.log("✅ Synced to Trakt successfully")
+    if (event === "media.scrobble") {
+      // Media finished (90%+ watched) - sync to history
+      console.log("✓ Extracted IDs:", ids)
+      await syncToTrakt(user, md, ids)
+      await cleanupProgressRecord(user.id, md.guid)
+      console.log("✅ Synced to Trakt history (scrobble)")
+      return res.status(200).send("ok")
+    }
+
+    // Handle progress sync events (play, pause, resume, stop)
+    if (!user.enableProgressSync) {
+      return res.status(200).send("progress sync disabled")
+    }
+
+    // Update local progress tracking
+    await updateProgressTracking(user.id, md.guid, md.type, md.title, ids, progress)
+
+    let traktAction: "start" | "pause" | "stop" | null = null
+
+    switch (event) {
+      case "media.play":
+        traktAction = "start"
+        break
+      case "media.pause":
+        traktAction = "pause"
+        break
+      case "media.resume":
+        // For resume, check if we should sync (throttling)
+        if (await shouldSyncProgress(user, md.guid, progress)) {
+          traktAction = "start"
+        }
+        break
+      case "media.stop":
+        traktAction = "stop"
+        // Clean up progress record on stop
+        await cleanupProgressRecord(user.id, md.guid)
+        break
+      default:
+        // Unknown event type
+        return res.status(200).send("ignored")
+    }
+
+    // Sync to Trakt if we have an action
+    if (traktAction) {
+      // For pause/resume events, check throttling
+      if (traktAction === "pause" || (event === "media.resume" && traktAction === "start")) {
+        if (!(await shouldSyncProgress(user, md.guid, progress))) {
+          console.log(`⏭️  Skipping sync (throttled)`)
+          return res.status(200).send("throttled")
+        }
+      }
+
+      console.log("✓ Extracted IDs:", ids)
+      await scrobbleToTrakt(user, md, ids, traktAction, progress)
+      await markProgressSynced(user.id, md.guid)
+      console.log(`✅ Scrobbled to Trakt (${traktAction} at ${progress}%)`)
+      return res.status(200).send("ok")
+    }
+
     return res.status(200).send("ok")
   } catch (err: any) {
     console.error("❌ Error syncing to Trakt:", err.message)
