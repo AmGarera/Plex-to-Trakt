@@ -1,6 +1,33 @@
 import { prisma } from "./prisma.js"
 
 /**
+ * Clean up orphaned SyncProgress records (stuck from missed stop events or paused sessions)
+ * Removes any progress records that haven't been updated in 24 hours
+ */
+export async function cleanupOrphanedProgress() {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+    const result = await prisma.syncProgress.deleteMany({
+      where: {
+        lastEventAt: {
+          lt: twentyFourHoursAgo,
+        },
+      },
+    })
+
+    if (result.count > 0) {
+      console.log(`🗑️  Cleaned up ${result.count} orphaned progress records (inactive for 24+ hours)`)
+    }
+
+    return result.count
+  } catch (err: any) {
+    console.error("❌ Error cleaning up orphaned progress:", err.message)
+    return 0
+  }
+}
+
+/**
  * Clean up old sync history records based on user retention settings
  */
 export async function cleanupSyncHistory() {

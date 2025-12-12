@@ -1,7 +1,7 @@
 import cron from "node-cron"
 import { prisma } from "./prisma.js"
 import { refreshTraktToken } from "./tokenRefresh.js"
-import { cleanupSyncHistory } from "./historyCleanup.js"
+import { cleanupSyncHistory, cleanupOrphanedProgress } from "./historyCleanup.js"
 
 export function startTokenRefreshCron() {
   // Run token refresh every week on Sunday at 3 AM
@@ -39,12 +39,21 @@ export function startTokenRefreshCron() {
     }
   })
 
-  // Run history cleanup daily at 4 AM (after token refresh)
+  // Run cleanup daily at 4 AM (after token refresh)
   cron.schedule("0 4 * * *", async () => {
-    console.log("🧹 Running scheduled sync history cleanup...")
+    console.log("🧹 Running scheduled cleanup tasks...")
+
+    // Clean up orphaned progress records (paused sessions, missed stop events)
+    await cleanupOrphanedProgress()
+
+    // Clean up old sync history records
     await cleanupSyncHistory()
+
+    console.log("✅ Daily cleanup completed")
   })
 
   console.log("✓ Refresh token maintenance cron job scheduled (runs weekly on Sundays at 3 AM)")
-  console.log("✓ Sync history cleanup cron job scheduled (runs daily at 4 AM)")
+  console.log("✓ Daily cleanup cron job scheduled (runs daily at 4 AM)")
+  console.log("  - Orphaned progress records cleanup")
+  console.log("  - Sync history cleanup (if enabled)")
 }
