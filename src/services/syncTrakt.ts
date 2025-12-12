@@ -1,6 +1,6 @@
 import axios from "axios"
 import { refreshTraktToken } from "./tokenRefresh.js"
-import { prisma } from "./prisma.js"
+import { logSyncHistory } from "./historyCleanup.js"
 
 /**
  * Sync a finished Plex media item to Trakt watch history
@@ -31,32 +31,11 @@ export async function syncToTrakt(user: any, md: any, ids: any) {
       },
     })
 
-    // Log successful sync
-    await prisma.syncHistory.create({
-      data: {
-        userId: user.id,
-        mediaType: md.type,
-        title: md.title,
-        guid: md.guid,
-        syncType: "scrobble",
-        progress: 100,
-        success: true,
-      },
-    })
+    // Log successful sync (only if user has history enabled)
+    await logSyncHistory(user.id, md.type, md.title, md.guid, "scrobble", 100, true)
   } catch (err: any) {
-    // Log failed sync
-    await prisma.syncHistory.create({
-      data: {
-        userId: user.id,
-        mediaType: md.type,
-        title: md.title,
-        guid: md.guid,
-        syncType: "scrobble",
-        progress: 100,
-        success: false,
-        errorMsg: err.message || "Unknown error",
-      },
-    })
+    // Log failed sync (only if user has history enabled)
+    await logSyncHistory(user.id, md.type, md.title, md.guid, "scrobble", 100, false, err.message || "Unknown error")
 
     throw err
   }

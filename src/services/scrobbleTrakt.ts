@@ -1,6 +1,7 @@
 import axios from "axios"
 import { refreshTraktToken } from "./tokenRefresh.js"
 import { prisma } from "./prisma.js"
+import { logSyncHistory } from "./historyCleanup.js"
 
 /**
  * Scrobble progress to Trakt (start, pause, stop events)
@@ -39,34 +40,13 @@ export async function scrobbleToTrakt(user: any, md: any, ids: any, action: "sta
       },
     })
 
-    // Log successful sync
-    await prisma.syncHistory.create({
-      data: {
-        userId: user.id,
-        mediaType: md.type,
-        title: md.title,
-        guid: md.guid,
-        syncType: action,
-        progress: progress,
-        success: true,
-      },
-    })
+    // Log successful sync (only if user has history enabled)
+    await logSyncHistory(user.id, md.type, md.title, md.guid, action, progress, true)
 
     return response.data
   } catch (err: any) {
-    // Log failed sync
-    await prisma.syncHistory.create({
-      data: {
-        userId: user.id,
-        mediaType: md.type,
-        title: md.title,
-        guid: md.guid,
-        syncType: action,
-        progress: progress,
-        success: false,
-        errorMsg: err.message || "Unknown error",
-      },
-    })
+    // Log failed sync (only if user has history enabled)
+    await logSyncHistory(user.id, md.type, md.title, md.guid, action, progress, false, err.message || "Unknown error")
 
     throw err
   }

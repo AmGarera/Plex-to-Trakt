@@ -144,6 +144,8 @@ router.get("/user-status/:userId", async (req, res) => {
       enableProgressSync: user.enableProgressSync,
       progressSyncThreshold: user.progressSyncThreshold,
       progressSyncInterval: user.progressSyncInterval,
+      enableSyncHistory: user.enableSyncHistory,
+      syncHistoryRetention: user.syncHistoryRetention,
     })
   } catch (err) {
     console.error(err)
@@ -301,7 +303,8 @@ router.get("/sync-history/:userId", async (req, res) => {
 
 // Update user progress sync settings
 router.post("/update-settings", async (req, res) => {
-  const { userId, enableProgressSync, progressSyncThreshold, progressSyncInterval } = req.body
+  const { userId, enableProgressSync, progressSyncThreshold, progressSyncInterval, enableSyncHistory, syncHistoryRetention } =
+    req.body
 
   if (!userId) {
     return res.status(400).json({ error: "missing userId" })
@@ -327,6 +330,14 @@ router.post("/update-settings", async (req, res) => {
       updateData.progressSyncInterval = progressSyncInterval
     }
 
+    if (typeof enableSyncHistory === "boolean") {
+      updateData.enableSyncHistory = enableSyncHistory
+    }
+
+    if (typeof syncHistoryRetention === "number" && syncHistoryRetention >= 1 && syncHistoryRetention <= 365) {
+      updateData.syncHistoryRetention = syncHistoryRetention
+    }
+
     const user = await prisma.user.update({
       where: { id: Number(userId) },
       data: updateData,
@@ -337,6 +348,8 @@ router.post("/update-settings", async (req, res) => {
       enableProgressSync: user.enableProgressSync,
       progressSyncThreshold: user.progressSyncThreshold,
       progressSyncInterval: user.progressSyncInterval,
+      enableSyncHistory: user.enableSyncHistory,
+      syncHistoryRetention: user.syncHistoryRetention,
     })
   } catch (err) {
     console.error(err)

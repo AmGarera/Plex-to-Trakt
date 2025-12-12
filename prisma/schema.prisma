@@ -28,6 +28,10 @@ model User {
   progressSyncThreshold Int     @default(5) // Only sync if progress changed by at least 5%
   progressSyncInterval  Int     @default(300) // Minimum seconds between progress updates (5 minutes)
 
+  // History logging settings
+  enableSyncHistory     Boolean @default(false) // Disable by default to save resources
+  syncHistoryRetention  Int     @default(7) // Days to keep history (7 days default)
+
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   syncProgress   SyncProgress[]

@@ -133,6 +133,31 @@
       </div>
 
       <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444">
+        <h3>Sync History Settings</h3>
+        <div style="margin-bottom: 15px">
+          <label style="display: flex; align-items: center; cursor: pointer">
+            <input type="checkbox" id="enableSyncHistory" onchange="updateSettings(); toggleHistoryUI()" style="width: auto; margin-right: 10px" />
+            <span>Enable sync history logging (stores last N days of sync events)</span>
+          </label>
+          <small style="color: #f90; display: block; margin-top: 5px">⚠️ Disabled by default to minimize memory/disk usage</small>
+        </div>
+
+        <div id="syncHistorySettings" style="display: none">
+          <label>History Retention (days)</label>
+          <input
+            type="number"
+            id="syncHistoryRetention"
+            min="1"
+            max="365"
+            value="7"
+            onchange="updateSettings()"
+            style="width: 100px"
+          />
+          <small style="color: #888; display: block">Old records are automatically deleted daily. Lower = less disk space used.</small>
+        </div>
+      </div>
+
+      <div id="syncHistorySection" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; display: none">
         <h3>Recent Sync Activity</h3>
         <button onclick="loadSyncHistory()" style="background: #666">Refresh History</button>
         <div id="syncHistory" style="margin-top: 15px; max-height: 300px; overflow-y: auto"></div>
@@ -381,6 +406,36 @@
         enableCheckbox.addEventListener("change", () => {
           settingsDiv.style.display = enableCheckbox.checked ? "block" : "none"
         })
+
+        // Load history settings
+        const historyCheckbox = document.getElementById("enableSyncHistory")
+        const historyRetentionInput = document.getElementById("syncHistoryRetention")
+        const historySettingsDiv = document.getElementById("syncHistorySettings")
+
+        historyCheckbox.checked = data.enableSyncHistory === true
+        historyRetentionInput.value = data.syncHistoryRetention || 7
+
+        // Show/hide history settings and section
+        historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        document.getElementById("syncHistorySection").style.display = historyCheckbox.checked ? "block" : "none"
+
+        historyCheckbox.addEventListener("change", () => {
+          historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        })
+      }
+
+      // Toggle history UI visibility
+      function toggleHistoryUI() {
+        const historyCheckbox = document.getElementById("enableSyncHistory")
+        const historySettingsDiv = document.getElementById("syncHistorySettings")
+        const historySection = document.getElementById("syncHistorySection")
+
+        historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        historySection.style.display = historyCheckbox.checked ? "block" : "none"
+
+        if (historyCheckbox.checked) {
+          loadSyncHistory()
+        }
       }
 
       // Update user settings
@@ -388,6 +443,8 @@
         const enableProgressSync = document.getElementById("enableProgressSync").checked
         const progressSyncThreshold = parseInt(document.getElementById("progressSyncThreshold").value)
         const progressSyncInterval = parseInt(document.getElementById("progressSyncInterval").value)
+        const enableSyncHistory = document.getElementById("enableSyncHistory").checked
+        const syncHistoryRetention = parseInt(document.getElementById("syncHistoryRetention").value)
 
         try {
           const res = await fetch("/auth/plex/update-settings", {
@@ -398,6 +455,8 @@
               enableProgressSync,
               progressSyncThreshold,
               progressSyncInterval,
+              enableSyncHistory,
+              syncHistoryRetention,
             }),
           })
 
