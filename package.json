@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/server.ts",
+    "start:prod": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "build": "tsc && prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.0.1",
@@ -26,6 +29,7 @@
     "@types/node": "^24.10.1",
     "@types/node-cron": "^3.0.11",
     "prisma": "^7.0.1",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
   }
 }
