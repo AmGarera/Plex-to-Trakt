@@ -76,10 +76,15 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 
-# Install ONLY production dependencies (excludes tsx, typescript, @types/*, etc.)
-# This saves ~50-100MB
-RUN npm ci --omit=dev && \
-    npm cache clean --force
+# Install build dependencies, production deps (including native modules), then clean up
+# This compiles better-sqlite3 and other native modules
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++ && \
+    npm ci --omit=dev && \
+    npm cache clean --force && \
+    apk del .build-deps
 
 # Copy compiled JavaScript from builder
 COPY --from=builder /app/dist ./dist
@@ -113,4 +118,4 @@ ENV NODE_ENV=production
 ENTRYPOINT ["dumb-init", "--"]
 
 # Run database migration then start app
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/server.js"]
