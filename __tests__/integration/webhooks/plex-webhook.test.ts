@@ -3,6 +3,20 @@ import request from "supertest"
 import express from "express"
 import { prismaMock } from "../../helpers/prisma-mock.js"
 
+// Mock scrobbleTrakt module before importing webhook router
+vi.mock("../../../src/services/scrobbleTrakt.js", () => ({
+  scrobbleToTrakt: vi.fn().mockResolvedValue({}),
+  updateProgressTracking: vi.fn().mockResolvedValue({}),
+  shouldSyncProgress: vi.fn().mockResolvedValue(true),
+  markProgressSynced: vi.fn().mockResolvedValue({}),
+  cleanupProgressRecord: vi.fn().mockResolvedValue({}),
+}))
+
+// Mock syncTrakt module
+vi.mock("../../../src/services/syncTrakt.js", () => ({
+  syncToTrakt: vi.fn().mockResolvedValue({}),
+}))
+
 // Import webhook router
 import webhookRouter from "../../../src/routes/webhook.js"
 
@@ -233,7 +247,16 @@ describe("Plex Webhook Integration", () => {
           id: 1,
           plexId: "123",
           enableProgressSync: true,
+          traktAccessToken: "token",
+          traktRefreshToken: "refresh",
+          traktClientId: "client",
+          traktExpiresAt: new Date(Date.now() + 86400000),
         } as any)
+
+        // Mock syncProgress operations
+        prismaMock.syncProgress.upsert.mockResolvedValue({} as any)
+        prismaMock.syncProgress.findUnique.mockResolvedValue(null)
+        prismaMock.syncProgress.update.mockResolvedValue({} as any)
 
         const response = await request(app).post("/webhooks/plex").send({ payload: JSON.stringify(mockPayload) })
 
@@ -258,7 +281,16 @@ describe("Plex Webhook Integration", () => {
           id: 1,
           plexId: "123",
           enableProgressSync: true,
+          traktAccessToken: "token",
+          traktRefreshToken: "refresh",
+          traktClientId: "client",
+          traktExpiresAt: new Date(Date.now() + 86400000),
         } as any)
+
+        // Mock syncProgress operations
+        prismaMock.syncProgress.upsert.mockResolvedValue({} as any)
+        prismaMock.syncProgress.findUnique.mockResolvedValue(null)
+        prismaMock.syncProgress.update.mockResolvedValue({} as any)
 
         const response = await request(app).post("/webhooks/plex").send({ payload: JSON.stringify(mockPayload) })
 
