@@ -118,4 +118,4 @@ ENV NODE_ENV=production
 ENTRYPOINT ["dumb-init", "--"]
 
 # Run database migration then start app
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/server.js"]
