@@ -9,6 +9,10 @@
 # ============================================
 FROM node:20-alpine AS deps
 
+# Install build dependencies for better-sqlite3
+RUN apk add --no-cache python3 make g++
+
+# Set working directory
 WORKDIR /app
 
 # Copy only dependency files for better caching
