@@ -85,12 +85,19 @@ jobs:
           # Wait for container to start
           sleep 10
 
-          # Check if container is running
-          docker ps | grep test-container
-
-          # Check logs for errors
+          # Check logs (always show regardless of status)
+          echo "=== Container Logs ==="
           docker logs test-container
 
+          # Check if container is still running
+          if docker ps | grep -q test-container; then
+            echo "✅ Container is running"
+          else
+            echo "❌ Container exited"
+            docker ps -a | grep test-container
+            exit 1
+          fi
+
           # Cleanup
-          docker stop test-container
-          docker rm test-container
+          docker stop test-container || true
+          docker rm test-container || true
