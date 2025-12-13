@@ -4,19 +4,30 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/server.ts",
+    "start:prod": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsc",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ci": "vitest run --silent",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest watch",
     "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.0.1",
     "@prisma/client": "^7.0.1",
     "axios": "^1.13.2",
+    "better-sqlite3": "^11.7.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
     "multer": "^2.0.2",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "prisma": "^7.0.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -25,7 +36,13 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/node-cron": "^3.0.11",
-    "prisma": "^7.0.1",
-    "tsx": "^4.21.0"
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/ui": "^4.0.15",
+    "supertest": "^7.1.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.15",
+    "vitest-mock-extended": "^3.1.0"
   }
 }

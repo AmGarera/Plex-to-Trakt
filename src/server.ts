@@ -1,5 +1,5 @@
 import express from "express"
-import session from "express-session"
+import session, { MemoryStore } from "express-session"
 import dotenv from "dotenv"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -44,23 +44,29 @@ const { default: webhookRouter } = await import("./routes/webhook.js")
 const { default: authPlexRouter } = await import("./routes/authPlex.js")
 const { default: authTraktRouter } = await import("./routes/authTrakt.js")
 const { startTokenRefreshCron } = await import("./services/tokenRefreshCron.js")
+const { startSessionCleanup } = await import("./services/sessionCleanup.js")
 
 const app = express()
 const PORT = 3000
 
+// Create session store explicitly for cleanup access
+const sessionStore = new MemoryStore()
+
+// Session configuration
+const sessionMiddleware = session({
+  store: sessionStore,
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // set to true if using HTTPS
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
+})
+
 // Session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET!,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // set to true if using HTTPS
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    },
-  })
-)
+app.use(sessionMiddleware)
 
 // static UI
 app.use(express.static("public"))
@@ -83,4 +89,7 @@ app.get("/", (req: any, res: any) => res.sendFile(path.resolve("public/index.htm
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`)
   startTokenRefreshCron()
+
+  // Start session cleanup to prevent memory leaks
+  startSessionCleanup(sessionStore)
 })

@@ -1,17 +1,51 @@
+# Dependencies
 node_modules
 npm-debug.log
+yarn-error.log
+
+# Git
 .git
 .gitignore
+.github
+
+# Environment files
 .env
-.env.local
-.env.*.local
-*.md
+.env.*
+!.env.example
+!.env.test
+
+# IDE
 .vscode
 .idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+photos/
+
+# Database files
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
 data/
+
+# Build outputs (will be generated during docker build)
 dist
 build
+generated
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Coverage only (tests are needed for Docker test stage)
+coverage/

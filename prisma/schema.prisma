@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -23,6 +23,69 @@ model User {
   traktRefreshToken String?
   traktExpiresAt    DateTime?
 
+  // Progress sync settings
+  enableProgressSync    Boolean @default(true)
+  progressSyncThreshold Int     @default(5) // Only sync if progress changed by at least 5%
+  progressSyncInterval  Int     @default(300) // Minimum seconds between progress updates (5 minutes)
+
+  // History logging settings
+  enableSyncHistory     Boolean @default(false) // Disable by default to save resources
+  syncHistoryRetention  Int     @default(7) // Days to keep history (7 days default)
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  syncProgress   SyncProgress[]
+  syncHistory    SyncHistory[]
+}
+
+// Track active playback sessions for progress syncing
+model SyncProgress {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Media identification
+  mediaType String   // "movie" or "episode"
+  guid      String   // Plex GUID
+  title     String?  // For logging
+
+  // IDs for Trakt
+  tmdbId    Int?
+  imdbId    String?
+  tvdbId    Int?
+  season    Int?
+  episode   Int?
+
+  // Progress tracking
+  progress       Float    // Percentage (0-100)
+  lastSyncedAt   DateTime @default(now())
+  lastEventAt    DateTime @default(now())
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, guid])
+  @@index([userId])
+}
+
+// Log all sync attempts for debugging and history
+model SyncHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Media info
+  mediaType String
+  title     String?
+  guid      String?
+
+  // Sync details
+  syncType  String   // "scrobble", "progress", "start", "pause", "stop"
+  progress  Float?   // For progress syncs
+  success   Boolean
+  errorMsg  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

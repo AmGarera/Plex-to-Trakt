@@ -141,6 +141,11 @@ router.get("/user-status/:userId", async (req, res) => {
       hasTraktSecrets: !!(user.traktClientId && user.traktClientSecret),
       hasTraktTokens: !!(user.traktAccessToken && user.traktRefreshToken),
       traktClientId: user.traktClientId,
+      enableProgressSync: user.enableProgressSync,
+      progressSyncThreshold: user.progressSyncThreshold,
+      progressSyncInterval: user.progressSyncInterval,
+      enableSyncHistory: user.enableSyncHistory,
+      syncHistoryRetention: user.syncHistoryRetention,
     })
   } catch (err) {
     console.error(err)
@@ -269,6 +274,86 @@ router.post("/callback", async (req, res) => {
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: "failed to validate plex token" })
+  }
+})
+
+// Get user sync history
+router.get("/sync-history/:userId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId)
+    const limit = parseInt(req.query.limit as string) || 50
+
+    // Verify the user is accessing their own data
+    if (req.session?.userId && req.session.userId !== userId) {
+      return res.status(403).json({ error: "unauthorized" })
+    }
+
+    const history = await prisma.syncHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    })
+
+    res.json({ ok: true, history })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ ok: false })
+  }
+})
+
+// Update user progress sync settings
+router.post("/update-settings", async (req, res) => {
+  const { userId, enableProgressSync, progressSyncThreshold, progressSyncInterval, enableSyncHistory, syncHistoryRetention } =
+    req.body
+
+  if (!userId) {
+    return res.status(400).json({ error: "missing userId" })
+  }
+
+  // Verify the user is modifying their own data
+  if (req.session?.userId !== Number(userId)) {
+    return res.status(403).json({ error: "unauthorized" })
+  }
+
+  try {
+    const updateData: any = {}
+
+    if (typeof enableProgressSync === "boolean") {
+      updateData.enableProgressSync = enableProgressSync
+    }
+
+    if (typeof progressSyncThreshold === "number" && progressSyncThreshold >= 0 && progressSyncThreshold <= 100) {
+      updateData.progressSyncThreshold = progressSyncThreshold
+    }
+
+    if (typeof progressSyncInterval === "number" && progressSyncInterval >= 0) {
+      updateData.progressSyncInterval = progressSyncInterval
+    }
+
+    if (typeof enableSyncHistory === "boolean") {
+      updateData.enableSyncHistory = enableSyncHistory
+    }
+
+    if (typeof syncHistoryRetention === "number" && syncHistoryRetention >= 1 && syncHistoryRetention <= 365) {
+      updateData.syncHistoryRetention = syncHistoryRetention
+    }
+
+    const user = await prisma.user.update({
+      where: { id: Number(userId) },
+      data: updateData,
+    })
+
+    res.json({
+      ok: true,
+      enableProgressSync: user.enableProgressSync,
+      progressSyncThreshold: user.progressSyncThreshold,
+      progressSyncInterval: user.progressSyncInterval,
+      enableSyncHistory: user.enableSyncHistory,
+      syncHistoryRetention: user.syncHistoryRetention,
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: "failed to update settings" })
   }
 })
 

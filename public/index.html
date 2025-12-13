@@ -96,6 +96,74 @@
       <p><code id="webhookUrl">Loading...</code></p>
 
       <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444">
+        <h3>Progress Sync Settings</h3>
+        <div style="margin-bottom: 15px">
+          <label style="display: flex; align-items: center; cursor: pointer">
+            <input type="checkbox" id="enableProgressSync" onchange="updateSettings()" style="width: auto; margin-right: 10px" />
+            <span>Enable real-time progress sync (sync playback position, not just completion)</span>
+          </label>
+        </div>
+
+        <div id="progressSyncSettings" style="display: none">
+          <label>Minimum Progress Change (%) to trigger sync</label>
+          <input
+            type="number"
+            id="progressSyncThreshold"
+            min="1"
+            max="100"
+            value="5"
+            onchange="updateSettings()"
+            style="width: 100px"
+          />
+          <small style="color: #888; display: block; margin-bottom: 15px">Only sync when progress changes by at least this percentage</small>
+
+          <label>Minimum Time Between Updates (seconds)</label>
+          <input
+            type="number"
+            id="progressSyncInterval"
+            min="0"
+            max="3600"
+            value="300"
+            onchange="updateSettings()"
+            style="width: 100px"
+          />
+          <small style="color: #888; display: block">Prevents excessive API calls (default: 5 minutes)</small>
+        </div>
+        <div id="settingsStatus" style="margin-top: 10px"></div>
+      </div>
+
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444">
+        <h3>Sync History Settings</h3>
+        <div style="margin-bottom: 15px">
+          <label style="display: flex; align-items: center; cursor: pointer">
+            <input type="checkbox" id="enableSyncHistory" onchange="updateSettings(); toggleHistoryUI()" style="width: auto; margin-right: 10px" />
+            <span>Enable sync history logging (stores last N days of sync events)</span>
+          </label>
+          <small style="color: #f90; display: block; margin-top: 5px">⚠️ Disabled by default to minimize memory/disk usage</small>
+        </div>
+
+        <div id="syncHistorySettings" style="display: none">
+          <label>History Retention (days)</label>
+          <input
+            type="number"
+            id="syncHistoryRetention"
+            min="1"
+            max="365"
+            value="7"
+            onchange="updateSettings()"
+            style="width: 100px"
+          />
+          <small style="color: #888; display: block">Old records are automatically deleted daily. Lower = less disk space used.</small>
+        </div>
+      </div>
+
+      <div id="syncHistorySection" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; display: none">
+        <h3>Recent Sync Activity</h3>
+        <button onclick="loadSyncHistory()" style="background: #666">Refresh History</button>
+        <div id="syncHistory" style="margin-top: 15px; max-height: 300px; overflow-y: auto"></div>
+      </div>
+
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444">
         <h3>Manage Settings</h3>
         <button onclick="showTraktSettings()" style="background: #666">Change Trakt Credentials</button>
         <button onclick="removeTraktCredentials()" style="background: #f44336; margin-left: 10px">Remove Trakt Connection</button>
@@ -141,6 +209,10 @@
                 // Fully configured
                 document.getElementById("step2").style.display = "none"
                 document.getElementById("step3").style.display = "block"
+
+                // Load progress sync settings
+                loadProgressSyncSettings(data)
+                loadSyncHistory()
               } else {
                 // Show step 2 and pre-fill if we have saved secrets
                 document.getElementById("step2").style.display = "block"
@@ -316,6 +388,141 @@
         }
         localStorage.removeItem("plexTraktUserId")
         location.reload()
+      }
+
+      // Load progress sync settings into the UI
+      function loadProgressSyncSettings(data) {
+        const enableCheckbox = document.getElementById("enableProgressSync")
+        const thresholdInput = document.getElementById("progressSyncThreshold")
+        const intervalInput = document.getElementById("progressSyncInterval")
+        const settingsDiv = document.getElementById("progressSyncSettings")
+
+        enableCheckbox.checked = data.enableProgressSync !== false
+        thresholdInput.value = data.progressSyncThreshold || 5
+        intervalInput.value = data.progressSyncInterval || 300
+
+        // Show/hide advanced settings based on checkbox
+        settingsDiv.style.display = enableCheckbox.checked ? "block" : "none"
+        enableCheckbox.addEventListener("change", () => {
+          settingsDiv.style.display = enableCheckbox.checked ? "block" : "none"
+        })
+
+        // Load history settings
+        const historyCheckbox = document.getElementById("enableSyncHistory")
+        const historyRetentionInput = document.getElementById("syncHistoryRetention")
+        const historySettingsDiv = document.getElementById("syncHistorySettings")
+
+        historyCheckbox.checked = data.enableSyncHistory === true
+        historyRetentionInput.value = data.syncHistoryRetention || 7
+
+        // Show/hide history settings and section
+        historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        document.getElementById("syncHistorySection").style.display = historyCheckbox.checked ? "block" : "none"
+
+        historyCheckbox.addEventListener("change", () => {
+          historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        })
+      }
+
+      // Toggle history UI visibility
+      function toggleHistoryUI() {
+        const historyCheckbox = document.getElementById("enableSyncHistory")
+        const historySettingsDiv = document.getElementById("syncHistorySettings")
+        const historySection = document.getElementById("syncHistorySection")
+
+        historySettingsDiv.style.display = historyCheckbox.checked ? "block" : "none"
+        historySection.style.display = historyCheckbox.checked ? "block" : "none"
+
+        if (historyCheckbox.checked) {
+          loadSyncHistory()
+        }
+      }
+
+      // Update user settings
+      async function updateSettings() {
+        const enableProgressSync = document.getElementById("enableProgressSync").checked
+        const progressSyncThreshold = parseInt(document.getElementById("progressSyncThreshold").value)
+        const progressSyncInterval = parseInt(document.getElementById("progressSyncInterval").value)
+        const enableSyncHistory = document.getElementById("enableSyncHistory").checked
+        const syncHistoryRetention = parseInt(document.getElementById("syncHistoryRetention").value)
+
+        try {
+          const res = await fetch("/auth/plex/update-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: currentUserId,
+              enableProgressSync,
+              progressSyncThreshold,
+              progressSyncInterval,
+              enableSyncHistory,
+              syncHistoryRetention,
+            }),
+          })
+
+          const data = await res.json()
+          if (data.ok) {
+            document.getElementById("settingsStatus").innerHTML = '<p class="status">✓ Settings saved!</p>'
+            setTimeout(() => {
+              document.getElementById("settingsStatus").innerHTML = ""
+            }, 3000)
+          } else {
+            document.getElementById("settingsStatus").innerHTML = '<p class="error">Failed to save settings</p>'
+          }
+        } catch (err) {
+          document.getElementById("settingsStatus").innerHTML = '<p class="error">Error: ' + err.message + "</p>"
+        }
+      }
+
+      // Load and display sync history
+      async function loadSyncHistory() {
+        if (!currentUserId) return
+
+        try {
+          const res = await fetch(`/auth/plex/sync-history/${currentUserId}?limit=20`)
+          const data = await res.json()
+
+          if (data.ok && data.history) {
+            const historyDiv = document.getElementById("syncHistory")
+
+            if (data.history.length === 0) {
+              historyDiv.innerHTML = '<p style="color: #888">No sync activity yet</p>'
+              return
+            }
+
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px">'
+            html += "<tr style='border-bottom: 1px solid #444; text-align: left'>"
+            html += "<th style='padding: 8px'>Time</th>"
+            html += "<th style='padding: 8px'>Title</th>"
+            html += "<th style='padding: 8px'>Type</th>"
+            html += "<th style='padding: 8px'>Action</th>"
+            html += "<th style='padding: 8px'>Progress</th>"
+            html += "<th style='padding: 8px'>Status</th>"
+            html += "</tr>"
+
+            data.history.forEach((entry) => {
+              const date = new Date(entry.createdAt)
+              const timeStr = date.toLocaleString()
+              const statusIcon = entry.success ? "✅" : "❌"
+              const statusColor = entry.success ? "#4caf50" : "#f44336"
+              const progressStr = entry.progress != null ? `${Math.round(entry.progress)}%` : "-"
+
+              html += `<tr style='border-bottom: 1px solid #333'>`
+              html += `<td style='padding: 8px; color: #888'>${timeStr}</td>`
+              html += `<td style='padding: 8px'>${entry.title || "Unknown"}</td>`
+              html += `<td style='padding: 8px'>${entry.mediaType || "-"}</td>`
+              html += `<td style='padding: 8px'>${entry.syncType}</td>`
+              html += `<td style='padding: 8px'>${progressStr}</td>`
+              html += `<td style='padding: 8px; color: ${statusColor}'>${statusIcon}</td>`
+              html += "</tr>"
+            })
+
+            html += "</table>"
+            historyDiv.innerHTML = html
+          }
+        } catch (err) {
+          document.getElementById("syncHistory").innerHTML = '<p class="error">Failed to load sync history</p>'
+        }
       }
     </script>
   </body>
